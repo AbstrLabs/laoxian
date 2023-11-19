@@ -1,0 +1,4 @@
+Please rewrite the content to $context, with the key idea: $keyword, in $style style: 
+```
+$content
+```

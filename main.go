@@ -7,9 +7,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"golang.design/x/clipboard"
 	"golang.design/x/hotkey"
@@ -63,4 +66,49 @@ func main() {
 	}()
 
 	w.ShowAndRun()
+}
+
+func ui() {
+	myApp := app.New()
+	myWindow := myApp.NewWindow("laoxian")
+
+	//reply features
+	label1 := widget.NewLabel("Keyword")
+	value1 := widget.NewEntry()
+	label2 := widget.NewLabel("Style")
+	value2 := widget.NewSelect([]string{"Professional", "Casual"}, func(value string) {
+		log.Println("Select style to", value)
+	})
+	label3 := widget.NewLabel("Context")
+	value3 := widget.NewSelect([]string{"Email", "Slack"}, func(value string) {
+		log.Println("Select context to", value)
+	})
+	button := widget.NewButton("save", func() {
+		log.Println("start to GPT")
+	})
+
+	//grid
+	grid_reply := container.New(layout.NewGridLayout(2), label1, value1, label2, value2, label3, value3, button)
+	grid_rewrite := container.New(layout.NewGridLayout(2), label1, value1, label2, value2, label3, value3, button)
+
+	// //tabs
+	tabs := container.NewAppTabs(
+		container.NewTabItemWithIcon("", theme.HomeIcon(), widget.NewLabel("Home tab")),
+		container.NewTabItem("Reply", grid_reply),
+		container.NewTabItem("Rewrite", grid_rewrite),
+	)
+
+	// themes := container.NewGridWithColumns(2,
+	// 	widget.NewButton("Dark", func() {
+	// 		myApp.Settings().SetTheme(theme.DarkTheme())
+	// 	}),
+	// 	widget.NewButton("Light", func() {
+	// 		myApp.Settings().SetTheme(theme.LightTheme())
+	// 	}),
+	// )
+
+	tabs.SetTabLocation(container.TabLocationLeading)
+
+	myWindow.SetContent(tabs)
+	myWindow.ShowAndRun()
 }

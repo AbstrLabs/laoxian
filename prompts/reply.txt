@@ -1,4 +1,4 @@
-Please reply to the following $message_type, with the key idea: $key_idea:
+Please reply to the following $context, with the key idea: $keyword, in $style style: 
 ```
-$message_content
+$content
 ```
