@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
@@ -26,17 +27,22 @@ func main() {
 		panic(err)
 	}
 
-	w := app.New().NewWindow("golang.design/x/hotkey")
-
-	label := widget.NewLabel("Hello golang.design!")
-	button := widget.NewButton("Hi!", func() { label.SetText("Welcome :)") })
-	w.SetContent(container.NewVBox(label, button))
-
 	socket, _ := zmq.NewSocket(zmq.REQ)
 	defer socket.Close()
 
 	fmt.Println("Connecting to hello world server...")
 	socket.Connect("tcp://localhost:5555")
+
+	sendToGPT := func(str string) string {
+		socket.Send(string(str), 0)
+		// Wait for reply:
+		reply, _ := socket.Recv(0)
+
+		fmt.Println("Received ", reply)
+		return reply
+	}
+
+	w, home_label := ui(sendToGPT)
 
 	go func() {
 		// Register a desired hotkey.
@@ -49,16 +55,7 @@ func main() {
 			data := clipboard.Read(clipboard.FmtText)
 			if data != nil {
 				content := string(data)
-				label.SetText(content)
-
-				msg := map[string]interface{}{"template": "reply", "params": map[string]interface{}{"message_type": "email", "message_content": content, "key_idea": "i disagree"}}
-				str, _ := json.Marshal(msg)
-				socket.Send(string(str), 0)
-				// Wait for reply:
-				reply, _ := socket.Recv(0)
-
-				fmt.Println("Received ", reply)
-				label.SetText(reply)
+				home_label.SetText(content)
 
 				w.Show()
 			}
@@ -68,7 +65,7 @@ func main() {
 	w.ShowAndRun()
 }
 
-func ui() {
+func ui(sendToGPT func(str string) string) (fyne.Window, *widget.Label) {
 	myApp := app.New()
 	myWindow := myApp.NewWindow("laoxian")
 
@@ -83,8 +80,22 @@ func ui() {
 	value3 := widget.NewSelect([]string{"Email", "Slack"}, func(value string) {
 		log.Println("Select context to", value)
 	})
-	button := widget.NewButton("save", func() {
-		log.Println("start to GPT")
+	home_label := widget.NewLabel("Home tab")
+
+	button := widget.NewButton("Submit", func() {
+		msg := map[string]interface{}{
+			"template": "reply",
+			"params": map[string]interface{}{
+				"keyword": value1.Text,
+				"style":   value2.Selected,
+				"content": home_label.Text,
+				"context": value3.Selected,
+			},
+		}
+		str, _ := json.Marshal(msg)
+		respond := sendToGPT(string(str))
+		fmt.Println("done")
+		clipboard.Write(clipboard.FmtText, []byte(respond))
 	})
 
 	//grid
@@ -93,7 +104,7 @@ func ui() {
 
 	// //tabs
 	tabs := container.NewAppTabs(
-		container.NewTabItemWithIcon("", theme.HomeIcon(), widget.NewLabel("Home tab")),
+		container.NewTabItemWithIcon("", theme.HomeIcon(), home_label),
 		container.NewTabItem("Reply", grid_reply),
 		container.NewTabItem("Rewrite", grid_rewrite),
 	)
@@ -110,5 +121,7 @@ func ui() {
 	tabs.SetTabLocation(container.TabLocationLeading)
 
 	myWindow.SetContent(tabs)
-	myWindow.ShowAndRun()
+	// myWindow.ShowAndRun()
+
+	return myWindow, home_label
 }
