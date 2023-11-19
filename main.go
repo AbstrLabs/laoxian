@@ -5,11 +5,16 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 	"golang.design/x/clipboard"
 	"golang.design/x/hotkey"
+
+	zmq "github.com/pebbe/zmq4"
 )
 
 func main() {
@@ -24,6 +29,12 @@ func main() {
 	button := widget.NewButton("Hi!", func() { label.SetText("Welcome :)") })
 	w.SetContent(container.NewVBox(label, button))
 
+	socket, _ := zmq.NewSocket(zmq.REQ)
+	defer socket.Close()
+
+	fmt.Println("Connecting to hello world server...")
+	socket.Connect("tcp://localhost:5555")
+
 	go func() {
 		// Register a desired hotkey.
 		hk := hotkey.New([]hotkey.Modifier{hotkey.ModCmd}, hotkey.KeyL)
@@ -32,9 +43,22 @@ func main() {
 		}
 		// Start listen hotkey event whenever it is ready.
 		for range hk.Keydown() {
-			ret := clipboard.Read(clipboard.FmtText)
-			label.SetText(string(ret))
-			w.Show()
+			data := clipboard.Read(clipboard.FmtText)
+			if data != nil {
+				content := string(data)
+				label.SetText(content)
+
+				msg := map[string]interface{}{"template": "reply", "params": map[string]interface{}{"message_type": "email", "message_content": content, "key_idea": "i disagree"}}
+				str, _ := json.Marshal(msg)
+				socket.Send(string(str), 0)
+				// Wait for reply:
+				reply, _ := socket.Recv(0)
+
+				fmt.Println("Received ", reply)
+				label.SetText(reply)
+
+				w.Show()
+			}
 		}
 	}()
 

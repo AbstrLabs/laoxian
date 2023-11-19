@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	fyne.io/fyne/v2 v2.4.1
+	github.com/pebbe/zmq4 v1.2.10
 	golang.design/x/clipboard v0.7.0
 	golang.design/x/hotkey v0.4.1
 )
