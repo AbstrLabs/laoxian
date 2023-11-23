@@ -5,9 +5,11 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -18,7 +20,7 @@ import (
 	"golang.design/x/clipboard"
 	"golang.design/x/hotkey"
 
-	zmq "github.com/pebbe/zmq4"
+	zmq "github.com/go-zeromq/zmq4"
 )
 
 func main() {
@@ -27,19 +29,31 @@ func main() {
 		panic(err)
 	}
 
-	socket, _ := zmq.NewSocket(zmq.REQ)
+	ctx := context.Background()
+	socket := zmq.NewReq(ctx, zmq.WithDialerRetry(time.Second))
 	defer socket.Close()
 
-	fmt.Println("Connecting to hello world server...")
-	socket.Connect("tcp://localhost:5555")
+	fmt.Printf("Connecting to hello world server...")
+	if err := socket.Dial("tcp://localhost:5555"); err != nil {
+		fmt.Errorf("dialing: %w", err)
+	}
 
 	sendToGPT := func(str string) string {
-		socket.Send(string(str), 0)
-		// Wait for reply:
-		reply, _ := socket.Recv(0)
+		// Send hello.
+		m := zmq.NewMsgString(str)
+		fmt.Println("sending ", m)
+		if err := socket.Send(m); err != nil {
+			return "{\"error\": \"client send error\"}"
+		}
 
-		fmt.Println("Received ", reply)
-		return reply
+		// Wait for reply.
+		r, err := socket.Recv()
+		if err != nil {
+			return "{\"error\": \"client receive error\"}"
+		}
+		fmt.Println("received ", r.String())
+
+		return r.String()
 	}
 
 	w, home_label := ui(sendToGPT)

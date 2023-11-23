@@ -6,6 +6,9 @@ from string import Template
 import logging
 import json
 import traceback
+from g4f.Provider import (
+    Liaobots
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -63,6 +66,8 @@ def generate_completion(prompt):
     response = g4f.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
+        proxy="http://localhost:8889",
+        provider=g4f.Provider.Liaobots
     )
     return response
 
