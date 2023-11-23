@@ -110,6 +110,7 @@ func ui(sendToGPT func(str string) string) (fyne.Window, *widget.Label) {
 		respond := sendToGPT(string(str))
 		fmt.Println("done")
 		clipboard.Write(clipboard.FmtText, []byte(respond))
+		myWindow.Show()
 	})
 
 	//grid
