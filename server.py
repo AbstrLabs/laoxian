@@ -6,9 +6,8 @@ from string import Template
 import logging
 import json
 import traceback
-from g4f.Provider import (
-    Liaobots
-)
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -59,17 +58,39 @@ def process_request(message):
     error, prompt = make_prompt(template, params)
     if error:
         return error
-    return {'completion': generate_completion(prompt)}
+    error, completion = generate_completion(prompt)
+    if error:
+        return error
+    return {'completion': completion}
     
+usable = [
+    g4f.Provider.ChatBase,
+    g4f.Provider.Chatgpt4Online,
+    g4f.Provider.GPTalk,
+    g4f.Provider.GeekGpt,
+    g4f.Provider.GptForLove,
+    g4f.Provider.Koala,
+    g4f.Provider.You
+]
+
+def gpt_responder(msg):
+    def responder(provider):
+        return g4f.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            provider=provider,
+            messages=[{"role": "user", "content": msg}],
+            proxy="http://localhost:8889"
+        )
+    return responder
 
 def generate_completion(prompt):
-    response = g4f.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        proxy="http://localhost:8889",
-        provider=g4f.Provider.Liaobots
-    )
-    return response
+    with ThreadPoolExecutor() as executor:
+        for ret in executor.map(gpt_responder(prompt), usable):
+            if isinstance(ret, Exception):
+                logging.error('generated an exception: %s' % ret)
+            else:
+                return None, ret
+    return {"error": "all provider response error"}, None
 
 context = zmq.Context()
 socket = context.socket(zmq.REP)
