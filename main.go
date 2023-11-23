@@ -51,12 +51,13 @@ func main() {
 		if err != nil {
 			return "{\"error\": \"client receive error\"}"
 		}
-		fmt.Println("received ", r.String())
+		ret := string(r.Bytes())
+		fmt.Println("received ", ret)
 
-		return r.String()
+		return ret
 	}
 
-	w, home_label := ui(sendToGPT)
+	w, before_content := ui(sendToGPT)
 
 	go func() {
 		// Register a desired hotkey.
@@ -69,7 +70,7 @@ func main() {
 			data := clipboard.Read(clipboard.FmtText)
 			if data != nil {
 				content := string(data)
-				home_label.SetText(content)
+				before_content.SetText(content)
 
 				w.Show()
 			}
@@ -82,61 +83,110 @@ func main() {
 func ui(sendToGPT func(str string) string) (fyne.Window, *widget.Label) {
 	myApp := app.New()
 	myWindow := myApp.NewWindow("laoxian")
+	myWindow.Resize(fyne.NewSize(400, 300))
 
-	//reply features
-	label1 := widget.NewLabel("Keyword")
-	value1 := widget.NewEntry()
-	label2 := widget.NewLabel("Style")
-	value2 := widget.NewSelect([]string{"Professional", "Casual"}, func(value string) {
+	//text
+	before_label := widget.NewLabel("Before")
+	before_content := widget.NewLabel("...")
+	before_content.Wrapping = fyne.TextWrapWord
+
+	after_label := widget.NewLabel("After")
+	after_content := widget.NewLabel("...")
+	after_content.Wrapping = fyne.TextWrapWord
+
+	//feature list
+	style_list := []string{"Professional", "Casual", "Formal", "Friendly", "Diplomatic"}
+	context_list := []string{"Email", "Slack", "Discord", "Telegram", "Facebook", "Instagram"}
+	//gpt features
+	keyword_label := widget.NewLabel("Keyword")
+	keyword_value := widget.NewEntry()
+	style_label := widget.NewLabel("Style")
+	style_value := widget.NewSelect(style_list, func(value string) {
 		log.Println("Select style to", value)
 	})
-	label3 := widget.NewLabel("Context")
-	value3 := widget.NewSelect([]string{"Email", "Slack"}, func(value string) {
+	context_label := widget.NewLabel("Context")
+	context_value := widget.NewSelect(context_list, func(value string) {
 		log.Println("Select context to", value)
 	})
-	home_label := widget.NewLabel("Home tab")
 
-	button := widget.NewButton("Submit", func() {
+	//button
+	reply_button := widget.NewButton("Submit", func() {
 		msg := map[string]interface{}{
 			"template": "reply",
 			"params": map[string]interface{}{
-				"keyword": value1.Text,
-				"style":   value2.Selected,
-				"content": home_label.Text,
-				"context": value3.Selected,
+				"keyword": keyword_value.Text,
+				"style":   style_value.Selected,
+				"content": before_content.Text,
+				"context": context_value.Selected,
 			},
 		}
 		str, _ := json.Marshal(msg)
-		respond := sendToGPT(string(str))
+
+		//TODO: make it go func
+		response := sendToGPT(string(str))
 		fmt.Println("done")
-		clipboard.Write(clipboard.FmtText, []byte(respond))
+
+		var dat map[string]string
+		json.Unmarshal([]byte(response), &dat)
+
+		result := dat["completion"]
+
+		after_content.SetText(result)
+
+		clipboard.Write(clipboard.FmtText, []byte(result))
+		myWindow.Show()
+	})
+
+	rewrite_button := widget.NewButton("Submit", func() {
+		msg := map[string]interface{}{
+			"template": "rewrite",
+			"params": map[string]interface{}{
+				"keyword": keyword_value.Text,
+				"style":   style_value.Selected,
+				"content": before_content.Text,
+				"context": context_value.Selected,
+			},
+		}
+		str, _ := json.Marshal(msg)
+		response := sendToGPT(string(str))
+		fmt.Println("done")
+
+		var dat map[string]string
+		json.Unmarshal([]byte(response), &dat)
+
+		result := dat["completion"]
+
+		after_content.SetText(result)
+
+		clipboard.Write(clipboard.FmtText, []byte(result))
 		myWindow.Show()
 	})
 
 	//grid
-	grid_reply := container.New(layout.NewGridLayout(2), label1, value1, label2, value2, label3, value3, button)
-	grid_rewrite := container.New(layout.NewGridLayout(2), label1, value1, label2, value2, label3, value3, button)
+	grid_reply := container.New(layout.NewVBoxLayout(), keyword_label, keyword_value, style_label, style_value, context_label, context_value, reply_button)
+	grid_rewrite := container.New(layout.NewVBoxLayout(), keyword_label, keyword_value, style_label, style_value, context_label, context_value, rewrite_button)
+	grid_content := container.New(layout.NewVBoxLayout(), before_label, before_content, after_label, after_content)
+
+	//mode
+	// dark_mode := widget.NewButton("Dark", func() {
+	// 	myApp.Settings().SetTheme(theme.DarkTheme())
+	// })
+
+	// light_mode := widget.NewButton("Light", func() {
+	// 	myApp.Settings().SetTheme(theme.LightTheme())
+	// })
 
 	// //tabs
 	tabs := container.NewAppTabs(
-		container.NewTabItemWithIcon("", theme.HomeIcon(), home_label),
+		container.NewTabItemWithIcon("", theme.HomeIcon(), grid_content),
 		container.NewTabItem("Reply", grid_reply),
 		container.NewTabItem("Rewrite", grid_rewrite),
 	)
 
-	// themes := container.NewGridWithColumns(2,
-	// 	widget.NewButton("Dark", func() {
-	// 		myApp.Settings().SetTheme(theme.DarkTheme())
-	// 	}),
-	// 	widget.NewButton("Light", func() {
-	// 		myApp.Settings().SetTheme(theme.LightTheme())
-	// 	}),
-	// )
-
 	tabs.SetTabLocation(container.TabLocationLeading)
 
-	myWindow.SetContent(tabs)
+	myWindow.SetContent(container.NewMax(tabs))
 	// myWindow.ShowAndRun()
 
-	return myWindow, home_label
+	return myWindow, before_content
 }
