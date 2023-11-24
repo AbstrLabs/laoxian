@@ -95,21 +95,26 @@ func ui(sendToGPT func(str string) string) (fyne.Window, *widget.Label) {
 	after_content.Wrapping = fyne.TextWrapWord
 
 	//feature list
-	style_list := []string{"Professional", "Casual", "Formal", "Friendly", "Diplomatic"}
+	reply_style_list := []string{"professional", "casual", "formal", "friendly", "diplomatic"}
 	context_list := []string{"Email", "Slack", "Discord", "Telegram", "Facebook", "Instagram"}
+
+	rewrite_style_list := []string{"native", "professional", "casual"}
+
 	//gpt features
 	keyword_label := widget.NewLabel("Keyword")
 	keyword_value := widget.NewEntry()
-	style_label := widget.NewLabel("Style")
-	style_value := widget.NewSelect(style_list, func(value string) {
-		log.Println("Select style to", value)
-	})
 	context_label := widget.NewLabel("Context")
 	context_value := widget.NewSelect(context_list, func(value string) {
 		log.Println("Select context to", value)
 	})
 
-	asyncProcess := func(msg map[string]interface{}) {
+	style_label := widget.NewLabel("Style")
+	reply_style_value := widget.NewSelect(reply_style_list, func(value string) {
+		log.Println("Select style to", value)
+	})
+	rewrite_style_value := widget.NewSelectEntry(rewrite_style_list)
+	// fetch result
+	async_process := func(msg map[string]interface{}) {
 		str, _ := json.Marshal(msg)
 		response := sendToGPT(string(str))
 		fmt.Println("done")
@@ -131,41 +136,40 @@ func ui(sendToGPT func(str string) string) (fyne.Window, *widget.Label) {
 			"template": "reply",
 			"params": map[string]interface{}{
 				"keyword": keyword_value.Text,
-				"style":   style_value.Selected,
+				"style":   reply_style_value.Selected,
 				"content": before_content.Text,
 				"context": context_value.Selected,
 			},
 		}
 
-		go asyncProcess(msg)
+		go async_process(msg)
 	})
 
 	rewrite_button := widget.NewButton("Submit", func() {
 		msg := map[string]interface{}{
 			"template": "rewrite",
 			"params": map[string]interface{}{
-				"keyword": keyword_value.Text,
-				"style":   style_value.Selected,
+				"style":   rewrite_style_value.Text,
 				"content": before_content.Text,
-				"context": context_value.Selected,
 			},
 		}
-		go asyncProcess(msg)
+		go async_process(msg)
 	})
 
 	//grid
-	grid_reply := container.New(layout.NewVBoxLayout(), keyword_label, keyword_value, style_label, style_value, context_label, context_value, reply_button)
-	grid_rewrite := container.New(layout.NewVBoxLayout(), keyword_label, keyword_value, style_label, style_value, context_label, context_value, rewrite_button)
+	grid_reply := container.New(layout.NewVBoxLayout(), keyword_label, keyword_value, style_label, reply_style_value, context_label, context_value, reply_button)
+	grid_rewrite := container.New(layout.NewVBoxLayout(), style_label, rewrite_style_value, rewrite_button)
 	grid_content := container.New(layout.NewVBoxLayout(), before_label, before_content, after_label, after_content)
 
 	//mode
-	// dark_mode := widget.NewButton("Dark", func() {
-	// 	myApp.Settings().SetTheme(theme.DarkTheme())
-	// })
-
-	// light_mode := widget.NewButton("Light", func() {
-	// 	myApp.Settings().SetTheme(theme.LightTheme())
-	// })
+	modes := container.NewGridWithColumns(2,
+		widget.NewButton("Dark", func() {
+			myApp.Settings().SetTheme(theme.DarkTheme())
+		}),
+		widget.NewButton("Light", func() {
+			myApp.Settings().SetTheme(theme.LightTheme())
+		}),
+	)
 
 	// //tabs
 	tabs := container.NewAppTabs(
@@ -176,7 +180,7 @@ func ui(sendToGPT func(str string) string) (fyne.Window, *widget.Label) {
 
 	tabs.SetTabLocation(container.TabLocationLeading)
 
-	myWindow.SetContent(container.NewMax(tabs))
+	myWindow.SetContent(container.NewBorder(tabs, modes, nil, nil))
 	// myWindow.ShowAndRun()
 
 	return myWindow, before_content
