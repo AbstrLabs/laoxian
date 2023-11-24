@@ -69,7 +69,6 @@ usable = [
     g4f.Provider.GPTalk,
     g4f.Provider.GeekGpt,
     g4f.Provider.GptForLove,
-    g4f.Provider.Koala,
     g4f.Provider.You
 ]
 
