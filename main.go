@@ -109,20 +109,8 @@ func ui(sendToGPT func(str string) string) (fyne.Window, *widget.Label) {
 		log.Println("Select context to", value)
 	})
 
-	//button
-	reply_button := widget.NewButton("Submit", func() {
-		msg := map[string]interface{}{
-			"template": "reply",
-			"params": map[string]interface{}{
-				"keyword": keyword_value.Text,
-				"style":   style_value.Selected,
-				"content": before_content.Text,
-				"context": context_value.Selected,
-			},
-		}
+	asyncProcess := func(msg map[string]interface{}) {
 		str, _ := json.Marshal(msg)
-
-		//TODO: make it go func
 		response := sendToGPT(string(str))
 		fmt.Println("done")
 
@@ -134,7 +122,22 @@ func ui(sendToGPT func(str string) string) (fyne.Window, *widget.Label) {
 		after_content.SetText(result)
 
 		clipboard.Write(clipboard.FmtText, []byte(result))
-		myWindow.Show()
+		fyne.CurrentApp().SendNotification(fyne.NewNotification("Laoxian", "Complete, content in clipboard"))
+	}
+
+	//button
+	reply_button := widget.NewButton("Submit", func() {
+		msg := map[string]interface{}{
+			"template": "reply",
+			"params": map[string]interface{}{
+				"keyword": keyword_value.Text,
+				"style":   style_value.Selected,
+				"content": before_content.Text,
+				"context": context_value.Selected,
+			},
+		}
+
+		go asyncProcess(msg)
 	})
 
 	rewrite_button := widget.NewButton("Submit", func() {
@@ -147,19 +150,7 @@ func ui(sendToGPT func(str string) string) (fyne.Window, *widget.Label) {
 				"context": context_value.Selected,
 			},
 		}
-		str, _ := json.Marshal(msg)
-		response := sendToGPT(string(str))
-		fmt.Println("done")
-
-		var dat map[string]string
-		json.Unmarshal([]byte(response), &dat)
-
-		result := dat["completion"]
-
-		after_content.SetText(result)
-
-		clipboard.Write(clipboard.FmtText, []byte(result))
-		myWindow.Show()
+		go asyncProcess(msg)
 	})
 
 	//grid
